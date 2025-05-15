@@ -1,0 +1,122 @@
+# Essential libraries
+import pandas as pd  # for Data manipulation and analysis
+import numpy as np  # for Mathematical operations and transformations
+
+# Visualization libraries
+import matplotlib.pyplot as plt  # for creating plots and charts
+import seaborn as sns  # for better statistical data visualization
+import ipywidgets as widgets
+from IPython.display import display
+
+# **** Importing data and Preliminary Data Understanding ****
+
+df = pd.read_csv("JKI-4-1-ev_stations.csv")
+
+df.shape
+df.info()
+df.head()
+df.dtypes
+df.describe()
+
+# **** Data cleaning and Manipulation ****
+
+df.isnull().sum()  # There are no missing values in any column
+df.duplicated().sum()  # There are no duplicated rows
+
+# Deleting the rows where City / Country is not valid (i.e. where Address contains "country")
+# The way to show the INVERSE of a selection is to put a tilde
+# it is a good practice to reset the index since we are dropping rows for the dataset
+# again we are using copy() here to set as a new dataframe
+
+df = df.loc[~df['Address'].str.contains('Country')] \
+    .reset_index(drop=True).copy()
+
+# Split the Adress column to have the city in a new column
+df[["Street_Address", "City"]] = df["Address"].str.split(',', expand=True, n=1)
+
+# Some rows might have only one element in the address column, so the city column would have NaN values
+# Fill NaN values in 'City' column
+df['City'] = df['City'].fillna('')
+
+df = df.drop(columns=["Address"], axis=1)
+
+# **** Groupings and Rankings ****
+
+# Count the total number of rows for each city
+city_counts = df.groupby(
+    'City')['Station ID'].count().sort_values(ascending=False)
+
+# Filter the top 10 cities
+top_10_cities = city_counts.head(10)
+
+print("Top 10 cities in number of EV charging stations:")
+display(top_10_cities)
+
+# Calculate the average cost per city using the "Cost (USD/kWh)"
+average_cost_per_city = df.groupby('City')['Cost (USD/kWh)'].mean()
+
+# Filter the average costs to include only the top 10 cities
+top_10_cities_avg_cost = average_cost_per_city[top_10_cities.index]
+
+# Sort the top 10 cities by average cost in ascending order
+cheapest_top_10_cities = top_10_cities_avg_cost.sort_values(ascending=True)
+
+# Show the five cheapest cities among the top 10
+print("Five cheapest cities among the top 10 with EV stations (based on average Cost (USD/kWh)):")
+display(cheapest_top_10_cities.head(5))
+
+# **** Data visualization ****
+
+# TOP 10 cities with the most EV charging stations
+plt.figure(figsize=(12, 6))  # Adjust figure size for better readability
+top_10_cities.plot(kind='bar', color='skyblue')
+plt.title('Top 10 Cities with the Highest Number of EV Stations', fontsize=14)
+plt.xlabel('City', fontsize=12)
+plt.ylabel('Number of Stations', fontsize=12)
+# Rotate x-axis labels for better readability
+plt.xticks(rotation=45, ha='right')
+plt.tight_layout()  # Adjust layout to prevent labels from overlapping
+plt.show()
+
+# TOP 10 cities with the cheapest average cost
+
+# Create a Checkbox widget for each of the top 10 cities
+city_checkboxes = [widgets.Checkbox(
+    value=True, description=city) for city in top_10_cities_avg_cost.index]
+
+# Create an VBox to hold the checkboxes
+checkbox_widget = widgets.VBox(city_checkboxes)
+
+# Function to update the plot based on selected cities
+
+
+def update_plot(change):
+    selected_cities = [
+        checkbox.description for checkbox in city_checkboxes if checkbox.value]
+
+    if not selected_cities:
+        print("Please select at least one city.")
+        return
+
+    # Filter the average costs for selected cities
+    selected_cities_data = top_10_cities_avg_cost[selected_cities]
+
+    # Create and display the bar chart
+    plt.figure(figsize=(12, 6))
+    selected_cities_data.sort_values().plot(kind='bar', color='teal')
+    plt.title(
+        'Average Charging Cost (USD/kWh) for Selected Top 10 Cities', fontsize=14)
+    plt.xlabel('City', fontsize=12)
+    plt.ylabel('Average Cost (USD/kWh)', fontsize=12)
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.show()
+
+
+# Link the update function to the checkboxes
+for checkbox in city_checkboxes:
+    checkbox.observe(update_plot, names='value')
+
+# Initial plot display
+print("Select cities to display in the bar chart:")
+display(checkbox_widget)
