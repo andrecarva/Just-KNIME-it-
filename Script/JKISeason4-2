@@ -1,0 +1,12 @@
+# Essential libraries
+import pandas as pd  # for Data manipulation and analysis
+import numpy as np  # for Mathematical operations and transformations
+
+# Visualization libraries
+import matplotlib.pyplot as plt  # for creating plots and charts
+
+import pandas as pd
+
+df = pd.read_csv("../JKI-4-2-nettle_1999_climate.csv")
+display(df.head())
+
