@@ -5,8 +5,71 @@ import numpy as np  # for Mathematical operations and transformations
 # Visualization libraries
 import matplotlib.pyplot as plt  # for creating plots and charts
 
+# **** Importing data and Preliminary Data Understanding ****
+
 import pandas as pd
 
 df = pd.read_csv("../JKI-4-2-nettle_1999_climate.csv")
 display(df.head())
 
+# **** Data exploration ****
+
+# Identify relevant columns and their data types
+relevant_columns = ['Country', 'MGS', 'Langs', 'population', 'area_squared_km']
+print("Data Types:")
+print(df[relevant_columns].dtypes)
+
+# Check for missing values
+print("\nMissing Values:")
+print(df[relevant_columns].isnull().sum())
+
+# Calculate descriptive statistics
+print("\nDescriptive Statistics:")
+print(df[relevant_columns].describe(include='all'))
+
+# Determine the shape of the DataFrame
+print("\nDataFrame Shape:")
+print(df.shape)
+
+# Examine unique values in the 'Country' column
+print("\nUnique Countries:")
+print(df['Country'].unique())
+
+# **** Data preparation ****
+
+# Create new columns for the required ratios
+df['languages_per_person'] = df['Langs'] / df['population']
+df['languages_per_area'] = df['Langs'] / df['area_squared_km']
+
+# Display the first few rows of the updated DataFrame
+display(df.head())
+
+# **** Data analysis ****
+
+# Find the top 5 countries with the highest number of languages spoken
+top_5_langs = df.sort_values(by='Langs', ascending=False).head(5)
+
+# Find the top 5 countries with the highest ratio of languages to population
+top_5_lang_per_pop = df.sort_values(by='languages_per_person', ascending=False).head(5)
+
+# Find the top 5 countries with the highest ratio of languages to area
+top_5_lang_per_area = df.sort_values(by='languages_per_area', ascending=False).head(5)
+
+# Analyze the relationship between the number of languages and MGS
+correlation = df['Langs'].corr(df['MGS'])
+print(f"Correlation between Langs and MGS: {correlation}")
+
+plt.figure(figsize=(8, 6))
+plt.scatter(df['Langs'], df['MGS'], color='skyblue')
+plt.xlabel('Number of Languages (Langs)')
+plt.ylabel('Mean Growing Season (MGS)')
+plt.title('Relationship between Number of Languages and Mean Growing Season')
+plt.grid(True)
+plt.show()
+
+print("Top 5 country per number of languages spoken:")
+display(top_5_langs)
+print("Top 5 country for number of languages per population ratio:")
+display(top_5_lang_per_pop)
+print("Top 5 country for number of languages per area ratio:")
+display(top_5_lang_per_area)
