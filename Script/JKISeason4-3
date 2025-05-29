@@ -1,0 +1,68 @@
+# 1. Import Libraries
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+import seaborn as sns
+from ipywidgets import interact, widgets
+
+# 2. Load Data
+df = pd.read_csv('JKI-4-3-food.csv')
+
+# 3. Select Numeric Columns for Clustering
+numeric_cols = df.select_dtypes(include=[np.number]).columns
+df_numeric = df[numeric_cols]
+
+# 4. Normalize Data
+scaler = MinMaxScaler()
+df_norm = pd.DataFrame(scaler.fit_transform(df_numeric), columns=numeric_cols)
+
+# 5. K-Means Clustering
+k = 3  # You can choose k dynamically later
+kmeans = KMeans(n_clusters=k, random_state=42)
+clusters = kmeans.fit_predict(df_norm)
+df_norm['Cluster'] = clusters
+
+# 6. Denormalize Data
+df_denorm = pd.DataFrame(scaler.inverse_transform(
+    df_norm[numeric_cols]), columns=numeric_cols)
+df_denorm['Cluster'] = clusters
+
+# 7. Visualize Clusters with Scatter Plots (Interactive)
+
+
+def scatter_plot(x_col, y_col):
+    plt.figure(figsize=(8, 6))
+    sns.scatterplot(data=df_denorm, x=x_col, y=y_col,
+                    hue='Cluster', palette='Set1')
+    plt.title(f'Clusters by {x_col} vs {y_col}')
+    plt.show()
+
+
+interact(
+    scatter_plot,
+    x_col=widgets.Dropdown(options=numeric_cols,
+                           value=numeric_cols[0], description='X Axis'),
+    y_col=widgets.Dropdown(options=numeric_cols,
+                           value=numeric_cols[1], description='Y Axis')
+)
+
+# 8. Analyze Cluster Distribution
+print(df_denorm['Cluster'].value_counts())
+
+# 9. Dimensionality Reduction with PCA
+pca = PCA(n_components=2)
+pca_result = pca.fit_transform(df_norm[numeric_cols])
+df_denorm['PCA1'] = pca_result[:, 0]
+df_denorm['PCA2'] = pca_result[:, 1]
+
+# 10. Visualize PCA Results
+plt.figure(figsize=(8, 6))
+sns.scatterplot(data=df_denorm, x='PCA1', y='PCA2',
+                hue='Cluster', palette='Set1')
+plt.title('Clusters Visualized in PCA Space')
+plt.xlabel('PCA Component 1')
+plt.ylabel('PCA Component 2')
+plt.show()
