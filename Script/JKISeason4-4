@@ -1,0 +1,37 @@
+"""
+You work for an entertainment company that wants to analyze various TV shows to gain insights into audience preferences. 
+Your next project focuses on transforming data from the show “Rick and Morty” into a structured dataset that can be easily analyzed and queried. 
+As a first step, you need to extract a complete list of characters featured in the series. However, the API that provides this information is paginated, 
+returning separate JSON files for each page. Retrieve and merge all these pages into one unified catalog of the show’s characters? To solve this challenge, use the https://rickandmortyapi.com/api url.
+
+Implement a recursive loop to handle paginated API responses and ensure all data is collected. Unify all the pages into a table with two string columns, id and character name.
+
+"""
+
+import requests
+import pandas as pd
+
+def fetch_all_characters(url, characters=None):
+    if characters is None:
+        characters = []
+    response = requests.get(url)
+    response.raise_for_status()
+    data = response.json()
+    characters.extend(data['results'])
+    next_url = data['info']['next']
+    if next_url:
+        return fetch_all_characters(next_url, characters)
+    return characters
+
+def main():
+    base_url = "https://rickandmortyapi.com/api/character"
+    all_characters = fetch_all_characters(base_url)
+    # Create DataFrame with 'id' and 'name' columns
+    df = pd.DataFrame(
+        [(str(char['id']), char['name']) for char in all_characters],
+        columns=['id', 'character name']
+    )
+    print(df)
+
+if __name__ == "__main__":
+    main()
