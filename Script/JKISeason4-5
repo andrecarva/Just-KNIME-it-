@@ -1,0 +1,26 @@
+import io
+import os
+from huggingface_hub import InferenceClient
+from PIL import Image
+
+
+# Initialize the client
+client = InferenceClient("black-forest-labs/FLUX.1-schnell",
+                         token="YOR TOKEN")
+
+# Generate an image from text
+image = client.text_to_image(
+    "A kid playing soccer, using a trainning tool in the shape of a semi-circle horizontal to the ground and at ground level. Make the image as realistic as possible.",
+    width=1024, height=1024,
+    num_inference_steps=12, guidance_scale=7.5,)
+image.show()
+
+
+"""
+# Convert the PIL.Image object to bytes (PNG format)
+image_bytes = io.BytesIO()
+image.save(image_bytes, format="PNG")
+image_bytes = image_bytes.getvalue()
+"""
+
+# REFERENCE: https://huggingface.co/black-forest-labs/FLUX.1-schnell
