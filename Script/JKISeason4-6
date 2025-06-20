@@ -1,0 +1,120 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, RocCurveDisplay
+import matplotlib.pyplot as plt
+import shap
+
+# Step 1: Load and preprocess the data
+df = pd.read_csv("e:/knime-workspace/Just KNIME it/Season 4/data/heart.csv")
+
+# a. Check for missing values
+print("Missing values:\n", df.isnull().sum())
+
+# b. Replace 0s in RestingBP and Cholesterol with median (excluding zeros)
+for col in ['RestingBP', 'Cholesterol']:
+    median = df.loc[df[col] != 0, col].median()
+    df.loc[df[col] == 0, col] = median
+
+# Convert negative Oldpeak to positive
+df['Oldpeak'] = df['Oldpeak'].abs()
+
+# c. Drop FastingBS
+df = df.drop(columns=['FastingBS'])
+
+# d. Encode categorical variables
+df['Sex'] = df['Sex'].map({'M': 1, 'F': 2})
+df['ChestPainType'] = df['ChestPainType'].map(
+    {'ATA': 1, 'NAP': 2, 'ASY': 3, 'TA': 4})
+df['RestingECG'] = df['RestingECG'].map({'Normal': 1, 'ST': 2, 'LVH': 3})
+df['ExerciseAngina'] = df['ExerciseAngina'].map({'Y': 1, 'N': 0})
+df['ST_Slope'] = df['ST_Slope'].map({'Down': -1, 'Flat': 0, 'Up': 1})
+
+# Step 2: Train-test split (stratified)
+X = df.drop(columns=['HeartDisease'])
+y = df['HeartDisease']
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, stratify=y, random_state=42
+)
+
+# c. Normalize features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# a & b. Parameter optimization and cross-validation
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+# Naive Bayes (no hyperparameters to tune for GaussianNB)
+nb_model = GaussianNB()
+nb_scores = []
+for train_idx, val_idx in cv.split(X_train_scaled, y_train):
+    nb_model.fit(X_train_scaled[train_idx], y_train.iloc[train_idx])
+    nb_scores.append(nb_model.score(
+        X_train_scaled[val_idx], y_train.iloc[val_idx]))
+nb_cv_score = np.mean(nb_scores)
+
+# Random Forest with GridSearchCV
+rf_params = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [4, 6, 8, None],
+    'min_samples_split': [2, 5, 10]
+}
+rf = RandomForestClassifier(random_state=42, class_weight='balanced')
+rf_grid = GridSearchCV(rf, rf_params, cv=cv, scoring='accuracy', n_jobs=-1)
+rf_grid.fit(X_train_scaled, y_train)
+rf_best = rf_grid.best_estimator_
+rf_cv_score = rf_grid.best_score_
+
+print(f"Naive Bayes CV Accuracy: {nb_cv_score:.3f}")
+print(f"Random Forest CV Accuracy: {rf_cv_score:.3f}")
+
+# Choose the best model
+if rf_cv_score > nb_cv_score:
+    best_model = rf_best
+    X_train_final, X_test_final = X_train_scaled, X_test_scaled
+    model_name = "Random Forest"
+else:
+    best_model = nb_model
+    X_train_final, X_test_final = X_train_scaled, X_test_scaled
+    model_name = "Naive Bayes"
+
+# d. Evaluate on test set
+y_pred = best_model.predict(X_test_final)
+print(f"\n{model_name} Test Classification Report:\n",
+      classification_report(y_test, y_pred))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+print("ROC AUC Score:", roc_auc_score(
+    y_test, best_model.predict_proba(X_test_final)[:, 1]))
+
+# ROC Curve
+RocCurveDisplay.from_estimator(best_model, X_test_final, y_test)
+plt.title(f"{model_name} ROC Curve")
+plt.show()
+
+# e. Explainability: Top 3 features (using SHAP for Random Forest)
+if model_name == "Random Forest":
+    explainer = shap.TreeExplainer(best_model)
+    shap_values = explainer.shap_values(X_test_final)
+    shap.summary_plot(shap_values[1], X_test, plot_type="bar", show=False)
+    plt.title("Top Features Impacting Heart Disease Prediction")
+    plt.show()
+
+    # Get top 3 features
+    shap_sum = np.abs(shap_values[1]).mean(axis=0)
+    feature_importance = pd.DataFrame(list(zip(X.columns, shap_sum)), columns=[
+                                      'feature', 'shap_importance'])
+    top3 = feature_importance.sort_values(
+        by='shap_importance', ascending=False).head(3)
+    print("\nTop 3 features driving predictions:\n", top3)
+else:
+    # For Naive Bayes, use feature importance from coefficients (not as interpretable)
+    importances = np.abs(nb_model.theta_[1] - nb_model.theta_[0])
+    feature_importance = pd.DataFrame(
+        list(zip(X.columns, importances)), columns=['feature', 'importance'])
+    top3 = feature_importance.sort_values(
+        by='importance', ascending=False).head(3)
+    print("\nTop 3 features driving predictions:\n", top3)
