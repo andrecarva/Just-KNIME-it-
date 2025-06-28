@@ -1,0 +1,80 @@
+import openai
+import pandas as pd
+
+df = pd.read_csv("../JKI-4-7-players.csv")
+df.head()
+
+
+# Calculate the percentage of missing values for each column
+missing_percentages = df.isnull().sum() / len(df) * 100
+
+# Identify columns with more than 10% missing values
+columns_to_drop = missing_percentages[missing_percentages > 10].index
+
+# Drop the identified columns
+df = df.drop(columns=columns_to_drop)
+
+# Display the first few rows and the shape of the updated DataFrame
+df.head()
+print(f"Shape of the DataFrame after dropping columns: {df.shape}")
+
+# List of columns to keep
+columns_to_keep = ['Player', 'Nation', 'Pos', 'Squad', 'Age', 'MP',
+                   'Starts', '90s', 'Gls', 'Ast', 'TklW', 'Tkl+Int', 'KP', 'Cmp%']
+
+# Create a new DataFrame with only the specified columns
+df = df[columns_to_keep]
+
+# Display the first few rows and the shape of the updated DataFrame
+df.head()
+print(f"Shape of the DataFrame after keeping selected columns: {df.shape}")
+
+# Filter rows where Age is less than 20
+df_under_20 = df[df['Age'] <= 20]
+
+# Display the first few rows and the shape of the filtered DataFrame
+df_under_20.head()
+print(f"Shape of the DataFrame after filtering by age: {df_under_20.shape}")
+
+
+"""**Accessing your API key and using the OpenAI API**
+
+Make sure you have stored your OpenAI API key in Colab's Secrets Manager with the name `OPENAI_API_KEY`.
+"""
+
+# Remove API key when sharing your code
+openai.api_key = "YOR-OPEN-AI_API_Key"
+
+# Prepare the data to be sent to the API
+# We can use the filtered dataframe df_under_20 as it is more relevant for finding rising stars
+data_for_prompt = df_under_20.to_markdown(index=False)
+
+# Construct the prompt for the OpenAI model
+prompt = f"""
+You are a data analyst for a top European football club that is looking to recruit new talent for the upcoming season.
+The club has provided you with the following football players stats dataset (limited to players under 20):
+
+{data_for_prompt}
+
+Your task is to select three players from this data who could be considered undervalued players or rising stars.
+Please identify these three players by their name and ranking ('Rk' column if it were available in the filtered data, since it's not, just use Player name and Squad).
+For each selected player, provide a brief justification (1-2 sentences) explaining why they might be a rising star or an undervalued player based on the provided stats.
+"""
+
+try:
+    # Make the API call
+    response = openai.chat.completions.create(
+        model="gpt-4.1-nano",  # Or another suitable model
+        messages=[
+            {"role": "system", "content": "You are a helpful data analyst assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=500,
+        temperature=0.7,
+    )
+
+    # Print the response from the API
+    print(response.choices[0].message.content)
+
+except Exception as e:
+    print(f"An error occurred: {e}")
