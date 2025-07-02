@@ -1,1 +1,32 @@
+import pandas as pd
 
+# Load the CSV files
+activity_df = pd.read_csv("../JKI-4-8-Flight_Activity.csv")
+history_df = pd.read_csv("../JKI-4-8-Flight_History.csv")
+
+# Exclude 'Year' and 'Month' columns before grouping
+activity_df_no_date = activity_df.drop(
+    columns=['Year', 'Month'], errors='ignore')
+
+# Group by 'Loyalty Number' and aggregate (e.g., sum all numeric columns)
+grouped = activity_df_no_date.groupby(
+    'Loyalty Number').sum(numeric_only=True).reset_index()
+
+# Join grouped activity with history_df on 'Loyalty Number'
+merged_df = pd.merge(grouped, history_df, on='Loyalty Number', how='inner')
+
+# Remove the rows where 'Cancellation Year' is not NaN
+merged_df = merged_df[merged_df['Cancellation Year'].isna()]
+
+merged_df.info
+
+# Create a new column 'SCORE' based on the formula 'SCORE = (CLV * 20%) + (Loyalty Points)
+merged_df['SCORE'] = (merged_df['CLV'] * 0.2) + merged_df['Points Accumulated']
+
+# Sort the DataFrame by 'SCORE' in descending order and select the top 10 rows
+top_10_customers = merged_df.sort_values(by='SCORE', ascending=False).head(10)
+
+# Display the top 10 customers
+print("Top 10 Customers based on SCORE:")
+print(top_10_customers[['Loyalty Number', 'SCORE',
+      'Province', 'City', 'Gender', 'Marital Status']])
